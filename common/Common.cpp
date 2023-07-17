@@ -64,6 +64,20 @@ static double distance(double lat1, double lon1, double lat2, double lon2) {
 		outLon = toDegrees(lon0);
 	}
 
+// void convertCoordinate(double lat, double lon, double alt,
+// 						double bearing, double pitch,
+// 						double x, double y, double z,
+// 						double& outLat, double& outLon)
+// {
+// 	double delta_lat = x / (111111 * cos(lat));
+// 	double delta_lon = y / 111111;
+// 	double R = 6371000;  // radius of Earth in meters
+// 	double new_lat = lat + (delta_lat / R) * (180 / M_PI);
+// 	double new_lon = lon + (delta_lon / R) * (180 / M_PI) / cos(lat);
+// 	outLat = new_lat;
+// 	outLon = new_lon;
+// }
+
 
 
 // int main() {
