@@ -4,7 +4,7 @@
  * author:FEX
  * time:2023-05-23
  * description:
- * 光电球通信类实现
+ * 光电球通信类实�?
  *	
  * ***************/
 
@@ -16,7 +16,7 @@ namespace IPSERVER
 
     int ViewLinkHandle::m_RunStatus = -1;
     
-    //connect callback，连接状态处理
+    //connect callback，连接状态处�?
     int VLK_ConnStatusCallback(int iConnStatus, const char *szMessage, int iMsgLen, void *pUserParam)
     {
         if (VLK_CONN_STATUS_TCP_CONNECTED == iConnStatus)
@@ -55,7 +55,7 @@ namespace IPSERVER
 
 
     
-    //Register Callback，光电球状态数据回馈处理
+    //Register Callback，光电球状态数据回馈处�?
     int VLK_DevStatusCallback(int iType, const char *szBuffer, int iBufLen, void *pUserParam)
     {
         if (VLK_DEV_STATUS_TYPE_MODEL == iType)
@@ -83,7 +83,7 @@ namespace IPSERVER
             //printf("Yaw:%lf, Pitch:%lf\n", pTelemetry->dYaw, pTelemetry->dPitch);
 
             IPSERVER::ViewLinkHandle::GetInstance()->m_ZoomScale = uint32_t(pTelemetry->dZoomMagTimes);
-            IPSERVER::ViewLinkHandle::GetInstance()->m_laserDist = uint32_t(pTelemetry->sLaserDistance);
+            IPSERVER::ViewLinkHandle::GetInstance()->m_laserDist = pTelemetry->sLaserDistance;
 
             cout<<"pTelemetry->sLaserDistance"<<pTelemetry->sLaserDistance<<endl;
 
@@ -103,7 +103,7 @@ namespace IPSERVER
     ViewLinkHandle* ViewLinkHandle::m_Object = new ViewLinkHandle();
 
     
-    //构造函数
+    //构造函�?
     ViewLinkHandle::ViewLinkHandle()
     {
         ViewLinkHandle::m_RunStatus = -1;
@@ -114,8 +114,8 @@ namespace IPSERVER
         //获取配置文件中的端口配置
 		Common::GetValueByKeyFromConfig("VIEWLINK_PORT", m_ServerPort, PORT_LEN);
 
-        std::cout<<"从配置文件中读取的 光电球光电球 Server IP:"<<m_ServerIP<<std::endl;
-        std::cout<<"从配置文件中读取的 光电球光电球 Server PORT:"<<m_ServerPort<<std::endl;
+        std::cout<<"从配置文件中读取�?光电球光电球 Server IP:"<<m_ServerIP<<std::endl;
+        std::cout<<"从配置文件中读取�?光电球光电球 Server PORT:"<<m_ServerPort<<std::endl;
 
         //m_SerialHandle = nullptr;
         this->m_UDPClient = nullptr;
@@ -133,7 +133,7 @@ namespace IPSERVER
         return ViewLinkHandle::m_Object;
     }
 
-    //初始化
+    //初始�?
     int ViewLinkHandle::Init(IPSERVER::UDPClient *client)
     {
         //this->m_SerialHandle = sPort;
@@ -151,6 +151,8 @@ namespace IPSERVER
             return -1;
         }
 
+        printf("viewlink init success\n");
+
         VLK_SwitchLaser(1);
         ViewLinkHandle::m_RunStatus = 0;
         return 0;
@@ -165,7 +167,7 @@ namespace IPSERVER
         return 0;
     }
 
-    //连接
+    //连接   
     int ViewLinkHandle::Connect()
     {
         VLK_CONN_PARAM param;
@@ -174,6 +176,7 @@ namespace IPSERVER
         strncpy(param.ConnParam.IPAddr.szIPV4, "192.168.2.119", sizeof("192.168.2.119"));
         param.ConnParam.IPAddr.iPort = 2000;
 
+        std::this_thread::sleep_for(std::chrono::seconds(10));
         int iRet = VLK_Connect(&param, VLK_ConnStatusCallback, NULL);
         if (VLK_ERROR_NO_ERROR != iRet)
         {
@@ -186,6 +189,8 @@ namespace IPSERVER
 
             return -1;
         }
+
+        printf("[ViewLinkHandle] connect end\n");
 
         return 0;
     }
@@ -225,6 +230,12 @@ namespace IPSERVER
         return 0;
     }
 
+    int ViewLinkHandle::Stopp()
+    {
+        VLK_Stop();
+        return 0;
+    }
+
 
     //
     int ViewLinkHandle::Start()
@@ -238,6 +249,8 @@ namespace IPSERVER
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
+            printf("[ViewLinkHandle] start end\n");
+
             //归零
             VLK_Home();
         }
@@ -246,14 +259,14 @@ namespace IPSERVER
     }
 
 
-    //获取状态
+    //获取状�?
     const int ViewLinkHandle::GetStatus() const
     {
         return ViewLinkHandle::m_RunStatus;
     }
 
 
-    //运行运行状态 -1-无效，0-初始化成功，1-连接成功，
+    //运行运行状�?-1-无效�?-初始化成功，1-连接成功�?
     const int ViewLinkHandle::SetStatus(int status)
     {
         ViewLinkHandle::m_RunStatus = status;

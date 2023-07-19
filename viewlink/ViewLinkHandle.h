@@ -149,6 +149,7 @@ namespace IPSERVER
             uint32_t ZoomScale();
             short m_laserDist;
 
+            int Stopp();
 
 
     };//end class ViewLinkHandle

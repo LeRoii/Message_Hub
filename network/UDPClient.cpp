@@ -19,7 +19,7 @@
 namespace IPSERVER
 {
 
-    //构造函数
+    //构造函�?
     UDPClient::UDPClient()
     {
 		//读取配置文件中的服务器IP和端口号信息
@@ -37,7 +37,7 @@ namespace IPSERVER
 
 
 
-    //初始化
+    //初始�?
     int UDPClient::Init()
     {
         //创建socket
@@ -71,7 +71,7 @@ namespace IPSERVER
     int UDPClient::OnStart()
     {
 		//使用C++11标准类thread创建线程，注意需要gcc版本支持c++11
-		//创建接收消息的线程
+		//创建接收消息的线�?
 		r_thread = std::thread(&UDPClient::OnReceive, this);
 		r_thread.detach();//主线程与子线程分离，保证主线程结束不影响子线程，确保子线程在后台运行
 		printf("UDPClient create Receive thread succeed\n");
@@ -96,7 +96,7 @@ namespace IPSERVER
         return 0;
     }
 
-    //发送数据
+    //发送数�?
     int UDPClient::OnSend(short laserDist,double outlat,double outlong,int obj_x,int obj_y,int obj_class)
     {
         struct sockaddr_in addr;
@@ -106,13 +106,13 @@ namespace IPSERVER
         char buf[19];
         buf[0] = 0x6a;
         buf[1] = 0xa6;
-        //测距： 低位，中位，高位
+        //测距�?低位，中位，高位
 
         buf[2] = static_cast<char>(laserDist & 0xFF);
         buf[3] = static_cast<char>((laserDist >> 8) & 0xFF);
         buf[4] = static_cast<char>((laserDist >> 16) & 0xFF);
 
-        //纬度：4字节
+        //纬度�?字节
         int outlat_i = outlat*1000000;
         
         buf[5] = static_cast<char>(outlat_i & 0xFF);
@@ -120,7 +120,9 @@ namespace IPSERVER
         buf[7] = static_cast<char>((outlat_i >> 16) & 0xFF);
         buf[8] = static_cast<char>((outlat_i >> 24) & 0xFF);
 
-        //经度：4字节
+        printf("buf[5]:%#x, buf[6]:%#x, buf[7]:%#x, buf[8]:%#x\n", buf[5], buf[6], buf[7], buf[8]);
+
+        //经度�?字节
         // uint32_value = *reinterpret_cast<uint32_t*>(&outlong);
 
         int outlong_i = outlong*1000000;
@@ -128,6 +130,9 @@ namespace IPSERVER
         buf[10]= static_cast<char>((outlong_i >> 8) & 0xFF);
         buf[11] = static_cast<char>((outlong_i >> 16) & 0xFF);
         buf[12]= static_cast<char>((outlong_i >> 24) & 0xFF);
+
+        printf("buf[9]:%#x, buf[10]:%#x, buf[11]:%#x, buf[12]:%#x\n", buf[9], buf[10], buf[11], buf[12]);
+
 
         //目标像素位置
         buf[13] = static_cast<char>(obj_x & 0xFF);
@@ -151,7 +156,7 @@ namespace IPSERVER
 
     
     //使用C++11标准类thread创建线程，注意需要gcc版本支持c++11
-    //从客户端接收数据执行体
+    //从客户端接收数据执行�?
     void UDPClient::OnReceive()
     {
         while(this->m_RunStatus > 0)
@@ -176,7 +181,7 @@ namespace IPSERVER
                 {
                     std::cout<<std::endl<<"UDP callback function is NULL"<<std::endl;
                 }
-                usleep(300000);
+                usleep(50000);
 
             }
 

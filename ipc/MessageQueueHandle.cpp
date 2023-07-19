@@ -107,30 +107,33 @@ namespace IPSERVER
 			}
 			else
 			{
-				printf("MessageQueueHandle  OnReceive thread 接收到的消息信息如下：\n");
+				printf("MessageQueueHandle  reveive msg from algooooo：\n");
 
                 // uint8_t *str = (uint8_t*)&st_msg;
                 // for(int i=sizeof(st_msg.st_MQ_Type) ; i <  st_msg.st_MQ_Type; i++)
                 // {
                 //     printf("[%02X]", str[i]);
                 // }
+
+				printf("Objects_Num:[%d], MissX:[%d], MissY:[%d]\n", st_msg.st_Objects_Num, st_msg.st_MissX, st_msg.st_MissY);
                 
 
-				printf("\n\n消息长度：%ld\n回馈消息的KEY值:%d\n命令号：%d\n跟踪状态：%d\n识别状态：%d\n融合状态：%d\n推流状态：%d\n目标检测有效对象数量：%d\n脱靶量X：%d\n脱靶量Y：%d\n",
-						st_msg.st_MQ_Type, st_msg.st_Resp_Key, st_msg.st_Command,
-                        st_msg.st_Tracking_Status, st_msg.st_Identify_Status,st_msg.st_Fusion_Status,
-                        st_msg.st_Plugflow_Status, (uint32_t)st_msg.st_Objects_Num, (int16_t)(st_msg.st_MissX), (int16_t)(st_msg.st_MissY));
+				// printf("\n\n消息长度：%ld\n回馈消息的KEY值:%d\n命令号：%d\n跟踪状态：%d\n识别状态：%d\n融合状态：%d\n推流状态：%d\n目标检测有效对象数量：%d\n脱靶量X：%d\n脱靶量Y：%d\n",
+				// 		st_msg.st_MQ_Type, st_msg.st_Resp_Key, st_msg.st_Command,
+                //         st_msg.st_Tracking_Status, st_msg.st_Identify_Status,st_msg.st_Fusion_Status,
+                //         st_msg.st_Plugflow_Status, (uint32_t)st_msg.st_Objects_Num, (int16_t)(st_msg.st_MissX), (int16_t)(st_msg.st_MissY));
 						
-                printf("标号跟踪ID:%d\n",st_msg.st_Tracking_Target_ID);//标号跟踪ID
-                printf("十字分划叠加使能:%d\n\n",st_msg.st_Draw_Cross);//十字分划叠加使能
+                // printf("标号跟踪ID:%d\n",st_msg.st_Tracking_Target_ID);//标号跟踪ID
+                // printf("十字分划叠加使能:%d\n\n",st_msg.st_Draw_Cross);//十字分划叠加使能
                 
                 
 				//fill m_boxes
-				m_boxes.clear();
+				
 				static int MsgCnt = 0;
 				MsgCnt++;
 				if(MsgCnt % 10 == 0)
 				{
+					m_boxes.clear();
 					MsgCnt = 0;
 					for(std::uint32_t i =0; i<st_msg.st_Objects_Num && i < IPSERVER::IP_LEN ; i++)
 					{
@@ -143,15 +146,48 @@ namespace IPSERVER
                 
                 std::cout<<std::endl<<std::endl;
 
-                if(this->m_VLhandle != NULL && this->m_VLhandle != nullptr &&  st_msg.st_Tracking_Status != 0)
+				// static bool istracking = false;
+                if(this->m_VLhandle != nullptr &&  st_msg.st_Tracking_Status != 0)
                 {
-                    std::cout<<"move X Y"<<std::endl;
-                    this->m_VLhandle->Move((int16_t)(st_msg.st_MissX), (int16_t)(st_msg.st_MissY));
+                    
+					if(abs(st_msg.st_MissX) > 10 || abs(st_msg.st_MissY) > 10)
+					{
+						if(abs(st_msg.st_MissX) > 3000)
+						{
+							st_msg.st_MissX = st_msg.st_MissX > 0 ? 3000 : -3000;
+						}
+
+						if(abs(st_msg.st_MissY) > 3000)
+						{
+							st_msg.st_MissY = st_msg.st_MissY > 0 ? 3000 : -3000;
+						}
+						int factor = 1;
+						short mvX = st_msg.st_MissX*factor;
+						short mvY = st_msg.st_MissY*factor;
+                    	this->m_VLhandle->Move(mvX, mvY);
+						std::cout<<"tracking move X Y"<<std::endl;
+						printf("tracking mv x:%d, y:%d\n",mvX, mvY );
+					}
+					// istracking = true;
                 }
-                else
-                {
-                    std::cout<<"no move ViewLink Dev"<<std::endl;
-                }
+                // else
+                // {
+                //     std::cout<<"no move ViewLink Dev"<<std::endl;
+				// 	// printf("stop track1111!!!!!\n");
+				// 	// this->m_VLhandle->Move(0,0);
+				// 	// this->m_VLhandle->Stopp();
+				// 	// this->m_VLhandle->Home();
+				// 	// istracking = false;
+                // }
+
+				// if(istracking == true && st_msg.st_Tracking_Status == 0)
+				// {
+				// 	printf("!!!!!!stop track!!!!!!!\n");
+				// 	this->m_VLhandle->Move(0,0);
+				// 	this->m_VLhandle->Stopp();
+				// 	this->m_VLhandle->Home();
+				// 	istracking = false;
+				// }
                 
 
                 
@@ -231,7 +267,7 @@ namespace IPSERVER
 				}*/
 			}
 			
-			usleep(5000);
+			usleep(1000);
 		}
 		
 		printf("MessageQueueHandle  OnReceive thread end!\n");

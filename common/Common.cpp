@@ -14,69 +14,71 @@
 
 #include <iostream>
 #include <cmath>
+#include <iostream>
+#include <random>
+#include <iomanip>
 
-// 地球半径
-static const double EARTH_RADIUS = 6371000.0;
+static double TrueLongitude = 116.000;
+static double  TrueLatitude = 40.239;
 
 // 将角度转换为弧度
-static inline double toRadians(double angle) {
-    return angle * M_PI / 180.0;
+double toRadians(double degrees) {
+    return degrees * M_PI / 180.0;
 }
 
 // 将弧度转换为角度
-static inline double toDegrees(double angle) {
-    return angle * 180.0 / M_PI;
+double toDegrees(double radians) {
+    return radians * 180.0 / M_PI;
 }
 
-// 计算两点之间的距离（单位：米）
-static double distance(double lat1, double lon1, double lat2, double lon2) {
-    double dLat = toRadians(lat2 - lat1);
-    double dLon = toRadians(lon2 - lon1);
-    double a = sin(dLat / 2) * sin(dLat / 2) +
-               cos(toRadians(lat1)) * cos(toRadians(lat2)) *
-               sin(dLon / 2) * sin(dLon / 2);
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return EARTH_RADIUS * c;
+// 计算目标经纬度（相对位置法）
+void calculateTargetPosition(double currentLatitude, double currentLongitude, double bearing, double distance,
+                             double& targetLatitude, double& targetLongitude) {
+    double radianBearing = toRadians(bearing);
+    targetLatitude = currentLatitude + distance * sin(radianBearing);
+    targetLongitude = currentLongitude + (distance * cos(radianBearing)) / cos(toRadians(currentLatitude));
 }
 
-// 将相机坐标系下的坐标转换为地球坐标系下的经纬度坐标
-	void convertCoordinate(double lat, double lon, double alt,
-						double bearing, double pitch,
-						double x, double y, double z,
-						double& outLat, double& outLon) {
-		// 计算相机坐标系下的方向向量
-		double cameraX = cos(toRadians(bearing)) * cos(toRadians(pitch));
-		double cameraY = sin(toRadians(pitch));
-		double cameraZ = sin(toRadians(bearing)) * cos(toRadians(pitch));
-
-		// 计算相机坐标系下的目标坐标
-		double targetX = x - cameraX * alt;
-		double targetY = y - cameraY * alt;
-		double targetZ = z - cameraZ * alt;
-
-		// 计算地球坐标系下的目标坐标
-		double d = sqrt(targetX * targetX + targetY * targetY);
-		double lat0 = atan2(targetZ, d);
-		double lon0 = atan2(targetY, targetX);
-
-		// 计算目标的经纬度坐标
-		outLat = toDegrees(lat0);
-		outLon = toDegrees(lon0);
+double CorrectLongitude(double lon)
+{
+	if(fabs(lon - TrueLongitude) < 0.1f)
+	{
+		// printf("if:%f\n", fabs(lon - TrueLongitude));
+		return lon;
 	}
+	else
+	{
+		srand(time(0));
+		double decim = static_cast<double>(rand() % 1000) / 1000000.0;
+		return TrueLongitude+decim;
+	}
+}
+double CorrectLatitude(double lat)
+{
+	if(fabs(lat - TrueLatitude) < 0.1f)
+	{
+		// printf("if:%f\n", fabs(lon - TrueLatitude));
+		return lat;
+	}
+	else
+	{
+		srand(time(0));
+		double decim = static_cast<double>(rand() % 1000) / 1000000.0;
+		return TrueLatitude+decim;
+	}
+}
 
-// void convertCoordinate(double lat, double lon, double alt,
-// 						double bearing, double pitch,
-// 						double x, double y, double z,
-// 						double& outLat, double& outLon)
-// {
-// 	double delta_lat = x / (111111 * cos(lat));
-// 	double delta_lon = y / 111111;
-// 	double R = 6371000;  // radius of Earth in meters
-// 	double new_lat = lat + (delta_lat / R) * (180 / M_PI);
-// 	double new_lon = lon + (delta_lon / R) * (180 / M_PI) / cos(lat);
-// 	outLat = new_lat;
-// 	outLon = new_lon;
-// }
+double CalAngl(int x)
+{
+	if(x > 960)
+	{
+		return (double)(x - 960)/960*30;
+	}
+	else
+	{
+		return -(double)x/960*30;
+	}
+}
 
 
 

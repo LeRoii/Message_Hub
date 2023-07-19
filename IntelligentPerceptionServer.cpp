@@ -20,6 +20,7 @@
 #include "./network/UDPClient.h"
 #include "MQTTClient.h"
 #include <math.h>
+#include "common/Common.h"
 
 
 using namespace std;
@@ -27,17 +28,8 @@ using namespace IPSERVER;
 
 IPSERVER::UDPClient* client;
 
-float longitude = 116.000053092567;
-float latitude = 40.23988687;
+double latitude, longitude;
 
-
-float TrueLongitude = 116.000053092567;
-float TrueLatitude = 40.23988687;
-
-void convertCoordinate(double lat, double lon, double alt,
-						double bearing, double pitch,
-						double x, double y, double z,
-						double& outLat, double& outLon);
 
 //回调函数，当服务端socket每次接收到客户端发送的消息时就会调用这个回调函数对客户端消息进行解析、执行、回馈
 //参数及返回值类型可查阅Model.h文件
@@ -56,7 +48,7 @@ static void signal_handle(int signum)
 	// _xdma_reader_ch0.xdma_close();
 }
 
-static double distFactor = 1.0f;//dist1/w1
+static double distFactor = 0.02f;//dist1/w1
 double CalObjDist(int w)
 {
     return w*distFactor;
@@ -137,6 +129,8 @@ int main(int argc, char *argv[])
         IPSERVER::MessageQueueHandle::GetInstance()->SetVLHandle(VLHandle);
 
     }
+
+    IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(1.0);
 
     
     
@@ -225,20 +219,21 @@ int main(int argc, char *argv[])
     while(!IPSERVER::Common::GetSigFlag())
     {
         printf("IN WHILE\n");
-        usleep(1000000);
+        usleep(100000);
         auto boxes = IPSERVER::MessageQueueHandle::GetInstance()->m_boxes;
         double outlat, outlong;
         double x,y,z;
         // convertCoordinate(latitude, longitude, 0, 0, 0,x,y,z,outlat, outlong); 
-        longitude = fabs(longitude - TrueLongitude) < 1 ? longitude : TrueLongitude;
-        latitude = fabs(latitude - TrueLatitude) < 1 ? latitude : TrueLatitude;
 
         cJSON *js = cJSON_CreateObject();
         cJSON *Arr = cJSON_CreateArray();
         for(int i=0;i<boxes.size();i++)
         {
-
-            convertCoordinate(latitude, longitude, 0, 0, 0,boxes[i].x,boxes[i].y,CalObjDist(boxes[i].w), outlat, outlong);
+            // print("before cal:w:%d, longitude:%f, latitude:%f\n", boxes[i].w, longitude, latitude);
+            // convertCoordinate(latitude, longitude, 0, 0, 0,boxes[i].x,boxes[i].y,CalObjDist(boxes[i].w), outlat, outlong);
+            calculateTargetPosition(latitude, longitude, CalAngl(boxes[i].x), CalObjDist(boxes[i].w)/1000, outlat, outlong);
+            printf("in while:x:%d, y:%d, z:%f, w:%d, log:%f, lat:%f, outlog:%f, outlat:%f\n",boxes[i].x,boxes[i].y,CalObjDist(boxes[i].w),
+            boxes[i].w, latitude, longitude, outlat, outlong);
             // convertCoordinate(latitude, longitude, 0, 0, 0,boxes[i].x_3d,boxes[i].y_3d,boxes[i].z_3d, outlat, outlong);
             //处理markerinfo信息
             cJSON *mi = cJSON_CreateObject();
@@ -285,6 +280,7 @@ int main(int argc, char *argv[])
         {
             //std::cout<<"\n\nTS send respond msg:\n"<<data<<std::endl;
             //respondInt++;
+            IPSERVER::MessageQueueHandle::GetInstance()->m_boxes.clear();
         }
 
 
@@ -950,26 +946,48 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
 
         send_msg.st_ZoomScale = IPSERVER::ViewLinkHandle::GetInstance()->ZoomScale();
 
+        if(buff[0] != 0x5a || buff[1] != 0xa5)
+        {
+            printf("unvalid buff, return\n");
+            return 0;
+        }
+
         //红外开关
         uint8_t s_flag = (buff[66] >> 3) & 0x01;
         //白光开关
         uint8_t v_flag = (buff[66] >> 2) & 0x01;
         //图像类型，0-可见光，1-红外，2-融合
-        if(v_flag == 0x01 && s_flag == 0x01)//融合
+        // if(v_flag == 0x01 && s_flag == 0x01)//融合
+        // if(v_flag == 0x01 && s_flag == 0x01)//融合
+        // {
+        //     send_msg.st_Fusion_Status = 2;
+        //     IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(send_msg.st_ZoomScale);
+            
+        // }
+        // else if(s_flag == 0x01)//红外
+        // {
+        //     send_msg.st_Fusion_Status = 1;
+        //     //IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(1.0);
+        // }
+        // else//其他都是 可见光类型
+        // {
+        //     send_msg.st_Fusion_Status = 0;
+        //     //IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(1.0);
+        // }
+
+        
+        if(s_flag == 0x01)//红外
         {
             send_msg.st_Fusion_Status = 2;
-            IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(send_msg.st_ZoomScale);
-            
+            // IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(send_msg.st_ZoomScale);
+            if(send_msg.st_ZoomScale != 3.0)
+                IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(3.0);
         }
-        else if(s_flag == 0x01)//红外
-        {
-            send_msg.st_Fusion_Status = 1;
-            //IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(1.0);
-        }
-        else//其他都是 可见光类型
+        else//vision
         {
             send_msg.st_Fusion_Status = 0;
-            //IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(1.0);
+            if(send_msg.st_ZoomScale != 1.0)
+                IPSERVER::ViewLinkHandle::GetInstance()->ZoomTo(1.0);
         }
 
         //目标自动识别
@@ -988,28 +1006,45 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
         uint8_t p_flag = (buff[76] >> 4) & 0x01;
         //标号跟踪
         uint8_t ttID_flag = (buff[76] >> 3) & 0x01;
+        static bool trackingon = false;
         if(p_flag == 0x01 && ttID_flag == 0x01)
         {
             send_msg.st_Tracking_Status = 1;//像素跟踪
             send_msg.st_Tracking_Point[0] = buff[78]*256 + buff[77];//X坐标
             send_msg.st_Tracking_Point[1] = buff[80]*256 + buff[79];//Y坐标
+            trackingon = true;
         }
         else if(ttID_flag == 0x01)
         {
             send_msg.st_Tracking_Status = 2;//标号跟踪
             send_msg.st_Tracking_Target_ID = buff[81];//标号ID
+            trackingon = true;
         }
         else if(p_flag == 0x01)
         {
             send_msg.st_Tracking_Status = 1;//像素跟踪
             send_msg.st_Tracking_Point[0] = buff[78]*256 + buff[77];//X坐标
             send_msg.st_Tracking_Point[1] = buff[80]*256 + buff[79];//Y坐标
+            trackingon = true;
+
+            // VLK_StartTrack();
         }
         else
         {
             send_msg.st_Tracking_Status = 0;//跟踪关
+            if(trackingon == true)
+            {
+                IPSERVER::ViewLinkHandle::GetInstance()->Move(0,0);
+				IPSERVER::ViewLinkHandle::GetInstance()->Stopp();
+				IPSERVER::ViewLinkHandle::GetInstance()->Home();
+                printf("stop tracking\n\n");
+                trackingon = false;
+            }
 
         }
+        
+
+        // send_msg.st_Tracking_Status = 0;
 
 
         //十字分划，上-FF,下-EE,左FF，右EE
@@ -1059,7 +1094,7 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
         latdata = (latdata << 8) + buff[116];
         latdata = (latdata << 8) + buff[115];
 
-        latitude = (float)latdata / 1000000;
+        latitude = (double)latdata / 1000000;
 
         uint64_t logdata = 0;
         logdata = buff[124];
@@ -1068,9 +1103,15 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
         logdata = (logdata << 8) + buff[121];
         logdata = (logdata << 8) + buff[120];
 
-        longitude = (float)logdata / 1000000;
+        longitude = (double)logdata / 1000000;
 
         printf("recv udp longitude:%f, latitude:%f\n", longitude, latitude);
+
+        if(longitude > 0.0f && latitude > 0.0f)
+        {
+            latitude = CorrectLatitude(latitude);
+            longitude = CorrectLongitude(longitude);
+        }
 
         
 
@@ -1081,11 +1122,11 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
                 send_msg.st_Command,send_msg.st_Tracking_Status);//跟踪状态
         printf("识别状态:%d\n",send_msg.st_Identify_Status);//识别状态
         printf("融合状态:%d\n",send_msg.st_Fusion_Status);//融合状态
-        printf("推流状态:%d\n",send_msg.st_Plugflow_Status);//推流状态
-        printf("标号跟踪ID:%d\n",send_msg.st_Tracking_Target_ID);//标号跟踪ID
-        printf("十字分划叠加使能:%d\n",send_msg.st_Draw_Cross);//十字分划叠加使能
-        printf("十字分划叠加位置:(%d,%d)\n",send_msg.st_Draw_Cross_Point[0],send_msg.st_Draw_Cross_Point[1]);//十字分划叠加位置
-        printf("像素跟踪位置：(%d,%d)\n",send_msg.st_Tracking_Point[0], send_msg.st_Tracking_Point[1]);
+        // printf("推流状态:%d\n",send_msg.st_Plugflow_Status);//推流状态
+        // printf("标号跟踪ID:%d\n",send_msg.st_Tracking_Target_ID);//标号跟踪ID
+        // printf("十字分划叠加使能:%d\n",send_msg.st_Draw_Cross);//十字分划叠加使能
+        // printf("十字分划叠加位置:(%d,%d)\n",send_msg.st_Draw_Cross_Point[0],send_msg.st_Draw_Cross_Point[1]);//十字分划叠加位置
+        // printf("像素跟踪位置：(%d,%d)\n",send_msg.st_Tracking_Point[0], send_msg.st_Tracking_Point[1]);
         printf("zoom scale:%d\n",send_msg.st_ZoomScale);//zoom scale
 
         //将消息发送给底层IPC消息队列
@@ -1105,11 +1146,13 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
         if(temp_camer_direct == 0x00)
         {
             X = static_cast<int>(camer_direct) / 2;
+            X = X > 1200 ? 3000 : 0;
             std::cout<<std::endl<<"云台顺方向X："<<X<<std::endl;
         }
         else if(temp_camer_direct == 0x01)
         {
             X = -(static_cast<int>(camer_direct) / 2);
+            X = X < -1200 ? -3000 : 0;
             std::cout<<"云台逆方向X："<<X<<std::endl;
         }
         else
@@ -1122,11 +1165,13 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
         if(temp_camer_pitch == 0x00)
         {
             Y = static_cast<int>(camer_pitch) / 5;
+            Y = Y > 1200 ? 3000 : 0;
             std::cout<<"云台顺俯仰Y："<<Y<<std::endl;
         }
         else if(temp_camer_pitch == 0x01)
         {
             Y = -(static_cast<int>(camer_pitch) / 5);
+            Y = Y < -1200 ? -3000 : 0;
             std::cout<<"云台逆俯仰Y："<<Y<<std::endl;
         }
         else
@@ -1134,13 +1179,30 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
             printf("云台俯仰未知！\n");
         }
 
+        static int lastX = 0;
+        static int lastY = 0;
+
         printf("IPSERVER::ViewLinkHandle::GetInstance()->GetStatus():%d\n",IPSERVER::ViewLinkHandle::GetInstance()->GetStatus());
-        if(IPSERVER::ViewLinkHandle::GetInstance()->GetStatus() == 0)
-        {
+        // if(IPSERVER::ViewLinkHandle::GetInstance()->GetStatus() != -1 && (X != 0 || Y!=0))
+        // {
             
+        //     printf("send Move to pod, X;%d, Y:%d\n", X, Y);
+        //     IPSERVER::ViewLinkHandle::GetInstance()->Move(X, Y);
+        // }
+        // else if(IPSERVER::ViewLinkHandle::GetInstance()->GetStatus() != -1 && (X == 0 && Y==0))
+        // {
+        //     printf("send Stopp\n");
+        //     IPSERVER::ViewLinkHandle::GetInstance()->Stopp();
+        // }
+
+        if(lastX != X || lastY != Y)
+        {
             printf("send Move to pod, X;%d, Y:%d\n", X, Y);
             IPSERVER::ViewLinkHandle::GetInstance()->Move(X, Y);
+            lastX = X;
+            lastY = Y;
         }
+
         else if(IPSERVER::ViewLinkHandle::GetInstance()->GetStatus() == -1)
         {
             
@@ -1151,10 +1213,18 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
 
         //光电归零 
         uint8_t zero_flag = (buff[74] >> 6) & 0x01;
+        static int zero_flagcnt = 0;
+        // printf("zero_flagzero_flagzero_flagzero_flagzero_flagzero_flagzero_flagzero_flag:%d\n", zero_flag);
         if(zero_flag == 0x01)
         //归零
         {
-            IPSERVER::ViewLinkHandle::GetInstance()->Home();
+            if(zero_flagcnt == 0)
+            {
+                printf("****************************************************光电归零\n");
+                IPSERVER::ViewLinkHandle::GetInstance()->Home();
+                zero_flagcnt = 2;
+            }
+            zero_flagcnt--;
         }
         else
         //关闭
@@ -1191,21 +1261,29 @@ int UDP_Callback(uint8_t* buff, uint32_t len)
         printf("接收到的字符长度：%d\n", len);
     }
 
-    //printf("laser dist:%d\n",IPSERVER::ViewLinkHandle::GetInstance()->m_laserDist);
+    printf("laser dist:%d\n",IPSERVER::ViewLinkHandle::GetInstance()->m_laserDist);
     auto boxes = IPSERVER::MessageQueueHandle::GetInstance()->m_boxes;
     int random_number = std::rand();
     short random_value = random_number%121+80;
     
+
+    obj_x = 0;
+    obj_y = 0;
     if(boxes.size()){
-        convertCoordinate(latitude, longitude, 0, 0, 0,boxes[0].x_3d,boxes[0].y_3d,boxes[0].z_3d, outlat, outlong);
+        // convertCoordinate(latitude, longitude, 0, 0, 0,boxes[0].x_3d,boxes[0].y_3d,boxes[0].z_3d, outlat, outlong);
+        // convertCoordinate(latitude, longitude, 0, 0, 0,boxes[0].x,boxes[0].y,CalObjDist(boxes[0].w), outlat, outlong);
+        calculateTargetPosition(latitude, longitude, CalAngl(boxes[0].x), CalObjDist(boxes[0].w)/1000, outlat, outlong);
+
         obj_x = boxes[0].x;
         obj_y = boxes[0].y;
         obj_class = boxes[0].obj_id;
+        printf("send obj info:x:%d,y:%d,lat:%f, log:%f\n", obj_x, obj_y, outlat, outlong);
+
     }
     
 
-
-    client->OnSend(random_value,outlat,outlong,obj_x,obj_y,obj_class);
+        // client->OnSend(IPSERVER::ViewLinkHandle::GetInstance()->m_laserDist*100,outlat,outlong,obj_x,obj_y,obj_class);
+        client->OnSend(IPSERVER::ViewLinkHandle::GetInstance()->m_laserDist*100,outlat,outlong,obj_x,obj_y,obj_class);
 
     return 0;
 }

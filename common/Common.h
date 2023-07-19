@@ -18,6 +18,13 @@
 using namespace std;
 using namespace IPSERVER;
 
+void calculateTargetPosition(double currentLatitude, double currentLongitude, double bearing, double distance,
+                             double& targetLatitude, double& targetLongitude);
+
+double CorrectLongitude(double lon);
+double CorrectLatitude(double lat);
+double CalAngl(int x);
+
 namespace IPSERVER
 {
 	class Common
